@@ -1,0 +1,143 @@
+// Modify exactly like your dashboard in blynk
+#define BLYNK_TEMPLATE_ID "TMPL6Pd-dO21G"
+#define BLYNK_TEMPLATE_NAME "PakanIkan"
+#define BLYNK_AUTH_TOKEN "fo1-DjVF4Uyuls0l8bPlU7NDd0LQ8dpu"
+
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+
+// PIN
+#define TRIG_PIN 5      // D1
+#define ECHO_PIN 4      // D2
+#define DHT_PIN 0       // D3
+
+#define BUZZER_PIN 14   // D5
+#define LED_MERAH 15    // D8
+#define LED_KUNING 16   // D0
+
+#define DHTTYPE DHT11
+
+// Modify as you like
+char ssid[] = "wifi";
+char pass[] = "135791113";
+
+DHT dht(DHT_PIN, DHTTYPE);
+BlynkTimer timer;
+
+void bacaSensor() {
+
+  // DHT11
+  float hum = dht.readHumidity();
+
+  if (isnan(hum)) {
+    Serial.println("Gagal membaca DHT11!");
+    return;
+  }
+
+  long duration;
+  float distance;
+
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(TRIG_PIN, LOW);
+
+  duration = pulseIn(ECHO_PIN, HIGH);
+
+  distance = duration * 0.0343 / 2.0;
+
+  String statusPakan;
+
+  if (distance <= 4) {
+    statusPakan = "PENUH";
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+  else if (distance >= 15) {
+    statusPakan = "HABIS";
+    digitalWrite(BUZZER_PIN, HIGH);
+  }
+  else {
+    statusPakan = "MENIPIS";
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  String statusKelembapan;
+
+  digitalWrite(LED_MERAH, LOW);
+  digitalWrite(LED_KUNING, LOW);
+
+  if (hum > 90) {
+    statusKelembapan = "BAHAYA";
+    digitalWrite(LED_MERAH, HIGH);
+    digitalWrite(LED_KUNING, LOW);
+  }
+  else if (hum >= 60) {
+    statusKelembapan = "WASPADA";
+    digitalWrite(LED_KUNING, HIGH);
+    digitalWrite(LED_MERAH, LOW);  
+  }
+  else {
+    statusKelembapan = "AMAN";
+    digitalWrite(LED_MERAH, LOW);
+    digitalWrite(LED_KUNING, LOW);
+  }
+
+  // SERIAL MONITOR
+
+  Serial.println("======================");
+
+  Serial.print("Jarak Pakan : ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  Serial.print("Status Pakan : ");
+  Serial.println(statusPakan);
+
+  Serial.print("Kelembapan : ");
+  Serial.print(hum);
+  Serial.println(" %");
+
+  Serial.print("Status Kelembapan : ");
+  Serial.println(statusKelembapan);
+
+  // KIRIM KE BLYNK
+
+  Blynk.virtualWrite(V0, statusPakan);
+  Blynk.virtualWrite(V1, statusKelembapan);
+}
+
+void setup() {
+
+  Serial.begin(9600);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  pinMode(LED_MERAH, OUTPUT);
+  pinMode(LED_KUNING, OUTPUT);
+
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(LED_MERAH, LOW);
+  digitalWrite(LED_KUNING, LOW);
+
+  dht.begin();
+
+  Serial.println("Menghubungkan ke WiFi dan Blynk...");
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+
+  timer.setInterval(2000L, bacaSensor);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
